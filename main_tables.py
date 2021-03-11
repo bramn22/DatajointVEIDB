@@ -16,7 +16,7 @@ dj.config['stores'] = {
     )
 }
 
-schema = dj.schema('Ephys', locals())
+schema = dj.schema('VEIDB', locals())
 
 
 @schema
@@ -63,10 +63,10 @@ class TrialGroup(dj.Imported):
 
     def make(self, key):
         base_path = os.path.join(data_path, "{experiment_id}/{mouse_id}/{session_id}".format(**key)) # could also be experiment_id/neuropixels/session_id
-        stimgroup_files = [os.path.splitext(f)[0] for f in os.listdir(base_path) if f.endswith('.h5')]
-        for stimgroup in stimgroup_files:
-            key['stimgroup_id'] = stimgroup
-            stimulus_type, iteration = stimgroup.split('_')
+        trialgroup_files = [os.path.splitext(f)[0] for f in os.listdir(base_path) if f.endswith('.h5')]
+        for trialgroup in trialgroup_files:
+            key['trialgroup_id'] = trialgroup
+            stimulus_type, iteration = trialgroup.split('_')
             key['stimulus_type'] = stimulus_type
             key['iteration'] = int(iteration)
             self.insert1(key)
