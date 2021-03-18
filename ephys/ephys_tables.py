@@ -20,7 +20,6 @@ class SpikeSorted(dj.Imported):
             cluster_info: longblob
             spike_templates: longblob
             amplitudes: longblob
-            mean_waveforms: longblob
             channel_positions: longblob
             channel_map: longblob
     """
@@ -29,7 +28,7 @@ class SpikeSorted(dj.Imported):
         import pandas as pd
         # Find path with sorted data
         sorted_path = os.path.join(data_path,
-                                 "{experiment_id}/{session_id}/sorted".format(**key)) # TODO: what does 000 indicate?
+                                 "{experiment_id}/{mouse_id}/{session_id}/sorted".format(**key))
         if not os.path.isdir(sorted_path):
             print('Neural recordings for {session_id} in {experiment_id} are not found'.format(**key))
             return
@@ -40,11 +39,10 @@ class SpikeSorted(dj.Imported):
         print(sorted_path)
         sorted_path = sorted_path[0]
 
-        key['spike_times'] = np.load(os.path.join(sorted_path, 'spike_times.npy')) # Close file?
+        key['spike_times'] = np.load(os.path.join(sorted_path, 'spike_times.npy'))
         key['spike_clusters'] = np.load(os.path.join(sorted_path, 'spike_clusters.npy'))
         key['spike_templates'] = np.load(os.path.join(sorted_path, 'spike_templates.npy'))
         key['amplitudes'] = np.load(os.path.join(sorted_path, 'amplitudes.npy'))
-        key['mean_waveforms'] = np.load(os.path.join(sorted_path, 'mean_waveforms.npy'))
         key['channel_positions'] = np.load(os.path.join(sorted_path, 'channel_positions.npy'))
         key['channel_map'] = np.load(os.path.join(sorted_path, 'channel_map.npy'))
         key['cluster_info'] = pd.read_csv(os.path.join(sorted_path, 'cluster_info.tsv'), sep='\t', header=0, index_col=0).to_dict()
@@ -57,8 +55,7 @@ class SpikeSorted(dj.Imported):
 @schema
 class EphysRaw(dj.Imported):
     definition = """
-            -> Session
-            id: int
+            -> TrialGroup
             ---
             ap_path:  varchar(512)
             meta_path: varchar(512)
@@ -71,68 +68,74 @@ class EphysRaw(dj.Imported):
     def make(self, key):
         # TODO: add file length as metadata
 
-        base_path = r"{experiment_id}/{session_id}/spikeGLX".format(**key)
+        base_path = r"{experiment_id}/{mouse_id}/{session_id}/SpikeGLX".format(**key)
         path = os.path.join(data_path, base_path)
         print(path)
         if not os.path.isdir(path):
             print('Neural recordings for {session_id} in {experiment_id} are not found'.format(**key))
             return
 
-        ap_files = [f for f in os.listdir(path) if f.endswith('.ap.bin')]
+        stimulus_type = (TrialGroup() & key).fetch1('stimulus_type')
+        ap_files = [f for f in os.listdir(path) if f.endswith('.ap.bin') and f.split('_')[0]==stimulus_type]
         ap_files.sort()
-        cumulative_length = 0  # TODO: check whether start includes 0, or starts at 1
+        print(ap_files)
+        file = ap_files[0]
 
-        for file in ap_files:
-            rel_file_path = os.path.join(base_path, file)
-            id, stimulus_type = file.split('_')[:2]
-            key['id'] = id
-            key['ap_path'] = rel_file_path
-            key['meta_path'] = rel_file_path[:-3]+'meta'
-            key['stimulus_type'] = stimulus_type
-            sync_trace = neuropixels_utils.extract_sync(Path(os.path.join(path, file)))
-            key['sync_trace'] = sync_trace
-            key['length'] = sync_trace.shape[1]
-            key['start'] = cumulative_length
-            cumulative_length += sync_trace.shape[1]
+        starts, lengths = (EphysRaw() & {'experiment_id': key['experiment_id'], 'mouse_id': key['mouse_id'], 'session_id': key['session_id']}).fetch('start', 'length')
+        print("Starts, lengths:", starts, lengths)
+        if len(starts) == 0:
+            start = 0
+        else:
+            last_idx = np.argmax(starts)
+            start = starts[last_idx] + lengths[last_idx]
 
-            self.insert1(key)
+
+        rel_file_path = os.path.join(base_path, file)
+        # id, stimulus_type = file.split('_')[:2]
+        key['ap_path'] = rel_file_path
+        key['meta_path'] = rel_file_path[:-3] + 'meta'
+        key['stimulus_type'] = stimulus_type
+        sync_trace = neuropixels_utils.extract_sync(Path(os.path.join(path, file)))
+        key['sync_trace'] = sync_trace
+        key['length'] = sync_trace.shape[1]
+        key['start'] = start
+
+        self.insert1(key)
 
         print('Populated neural recordings for {session_id} in {experiment_id}'.format(**key))
 
 
 @schema
-class Spikes(dj.Computed):
+class TrialGroupSpikes(dj.Computed):
     definition = """
             -> EphysRaw
+            -> SpikeSorted
             ---
             stimulus_type: varchar(128)
             start_abs: int
-            stim_trial_start: int
-            stim_trial_end: int
-            stim_triggers: longblob
             clusters: longblob            
             cluster_annot: longblob
     """
 
     def make(self, key):
-        # TODO: all of this data is relative to the specific stimulus recording, change this, or add it elsewhere!
-        # TODO: take into account specific stimulus types
-        # TODO: link NeuralSorted explicitely
-        experiment_id, session_id, stimulus_type, sync_trace, start, length = \
-            (EphysRaw() & key).fetch1('experiment_id', 'session_id', 'stimulus_type', 'sync_trace', 'start', 'length')
+        experiment_id, session_id, stimulus_type, start, length = \
+            (EphysRaw() & key).fetch1('experiment_id', 'session_id', 'stimulus_type', 'start', 'length')
         key['stimulus_type'] = stimulus_type
         key['start_abs'] = start
-        info = neuropixels_utils.get_trial_stimulus_info(sync_trace)
-        key.update(info)
+        spike_times, spike_clusters, cluster_info = \
+            (SpikeSorted() & key).fetch1('spike_times', 'spike_clusters', 'cluster_info')
+        # spike_times, spike_clusters, cluster_info = (
+        #             SpikeSorted() & {'experiment_id': experiment_id, 'session_id': session_id}).fetch1('spike_times',
+        #                                                                                                'spike_clusters',
+        #                                                                                                'cluster_info')
 
-        spike_times, spike_clusters, cluster_info = (SpikeSorted() & {'experiment_id': experiment_id, 'session_id': session_id}).fetch1('spike_times', 'spike_clusters', 'cluster_info')
-
-        key['clusters'] = neuropixels_utils.get_trial_clusters(spike_times, start, length, spike_clusters)
+        key['clusters'] = neuropixels_utils.get_trial_clusters(np.squeeze(spike_times), start, length, spike_clusters)
         key['cluster_annot'] = cluster_info['group']
         self.insert1(key)
 
         print('Populated a trial for {session_id} in {experiment_id}'.format(**key))
 
+#
 # @schema
-# class Trial(dj.Computed):
-#     pass
+# class TrialSpikes(dj.Computed):
+#

@@ -17,19 +17,22 @@ def extract_sync(file_path):
     return digArray
 
 
-def get_trial_stimulus_info(sync_trace):
+def get_trialgroup_stimulus_info(sync_trace):
     s2 = np.diff(sync_trace, prepend=0)
 
     # These are the channels used by Katja in her recordings
     info = {}
     info['stim_triggers'] = np.where(s2[7] == 1)[0]
     try:
-        info['stim_trial_start'] = np.where(s2[0] == 1)[0][0]  # Trial start in the entire session
-        info['stim_trial_end'] = np.where(s2[3] == 1)[0][0]  # TODO change absolute to relative end?
+        info['stims_start'] = np.where(s2[0] == 1)[0][0]  # Trial start in the entire session
     except IndexError as e:
-        print("Error occurred when loading stimulus start and end.", str(e))
-        info['stim_trial_start'] = -1
-        info['stim_trial_end'] = -1
+        print("Error occurred when loading events start.", str(e))
+        info['stims_start'] = -1
+    try:
+        info['stims_end'] = np.where(s2[3] == 1)[0][0]  # TODO change absolute to relative end?
+    except IndexError as e:
+        print("Error occurred when loading events end.", str(e))
+        info['stims_end'] = -1
     return info
 
 

@@ -33,7 +33,7 @@ class Experiment(dj.Manual):
 class Mouse(dj.Manual):
     definition = """
         -> Experiment
-        mouse_id = "M1" : varchar(16)
+        mouse_id = "M01" : varchar(16)
         ---
         sex: varchar(5)
         mouse_number: varchar(16)
@@ -62,7 +62,7 @@ class TrialGroup(dj.Imported):
     """
 
     def make(self, key):
-        base_path = os.path.join(data_path, "{experiment_id}/{mouse_id}/{session_id}".format(**key)) # could also be experiment_id/neuropixels/session_id
+        base_path = os.path.join(data_path, "{experiment_id}/{mouse_id}/{session_id}/wavesurfer".format(**key)) # could also be experiment_id/neuropixels/session_id
         trialgroup_files = [os.path.splitext(f)[0] for f in os.listdir(base_path) if f.endswith('.h5')]
         for trialgroup in trialgroup_files:
             key['trialgroup_id'] = trialgroup
@@ -73,5 +73,5 @@ class TrialGroup(dj.Imported):
 
 
 from ephys import ephys_tables
-from behavior import behavior_tables
-from stimulus import stimulus_tables
+# from behavior import behavior_tables
+from events import event_tables
