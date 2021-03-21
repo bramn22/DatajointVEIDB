@@ -91,3 +91,28 @@ class FaceCamRecording_avi(dj.Computed):
             data.write_avi(out_path=os.path.join(drive_path, avi_path), fps=30)
             key['avi_path'] = avi_path
             self.insert1(key)
+            
+#@schema
+#class BallReadout(dj.Imported):   # it's half imported, but also computed, not sure which dj is better for that
+#    definition = """
+#        -> TrialGroup or Session?
+#        ---
+#        ball_readout: longblob   # extracts the ball readout from wavesurfer channel
+#    """
+#
+#    def make(self, key):
+#        import h5py
+#        wavesurfer_path = os.path.join(data_path,
+#                                 "{experiment_id}/{mouse_id}/{session_id}/wavesurfer".format(**key))
+#        if not os.path.isdir(wavesurfer_path):
+#            print('Ball recordings for {session_id} in {experiment_id} are not found'.format(**key))
+#            return
+#         speedV0 = 16800 # analog signal when the animal is not moving
+#         sweep = '0001'
+#         with h5py.File(os.path.join(data_path, wavesurfer_files[0]), "r") as ws_file:
+#          # channels from wavesurfer file:
+#          # 0: frame triggers, 1: stim triggers, 2: imagin triggers,  4: ball speed, 5: camera triggers
+#            trigger_traces = np.array(ws_file.get('/sweep_' + sweep + '/analogScans'))
+#            ball_speed = (trigger_traces[2, :]-speedV0)/speedV0 # recorded with 20kHz
+#            key['ball_readout'] = ball_speed
+#            self.insert1(key)
