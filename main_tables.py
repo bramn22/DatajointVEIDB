@@ -52,22 +52,22 @@ class Session(dj.Manual):
 
 
 @schema
-class TrialGroup(dj.Imported):
+class Subsession(dj.Imported):
     definition = """
         -> Session
-        trialgroup_id: varchar(16)
+        subsession_id: varchar(16)
         ---
-        stimulus_type: varchar(16)
+        type: varchar(16)
         iteration: int
     """
 
     def make(self, key):
         base_path = os.path.join(data_path, "{experiment_id}/{mouse_id}/{session_id}/wavesurfer".format(**key)) # could also be experiment_id/neuropixels/session_id
-        trialgroup_files = [os.path.splitext(f)[0] for f in os.listdir(base_path) if f.endswith('.h5')]
-        for trialgroup in trialgroup_files:
-            key['trialgroup_id'] = trialgroup
-            stimulus_type, iteration = trialgroup.split('_')
-            key['stimulus_type'] = stimulus_type
+        subsession_files = [os.path.splitext(f)[0] for f in os.listdir(base_path) if f.endswith('.h5')]
+        for subsession in subsession_files:
+            key['subsession_id'] = subsession
+            type, iteration = subsession.split('_')[:2]
+            key['type'] = type
             key['iteration'] = int(iteration)
             self.insert1(key)
 

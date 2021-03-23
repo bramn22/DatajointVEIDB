@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from pathlib import Path
-from main_tables import Experiment, Session, TrialGroup
+from main_tables import Experiment, Session, Subsession
 import datajoint as dj
 from ephys import neuropixels_utils
 
@@ -55,12 +55,12 @@ class SpikeSorted(dj.Imported):
 @schema
 class EphysRaw(dj.Imported):
     definition = """
-            -> TrialGroup
+            -> Subsession
             ---
             ap_path:  varchar(512)
             meta_path: varchar(512)
             sync_trace: blob@external_neuropixels
-            stimulus_type: varchar(128)
+            subsession_type: varchar(128)
             length: int
             start: int                       
       """
@@ -75,8 +75,8 @@ class EphysRaw(dj.Imported):
             print('Neural recordings for {session_id} in {experiment_id} are not found'.format(**key))
             return
 
-        stimulus_type = (TrialGroup() & key).fetch1('stimulus_type')
-        ap_files = [f for f in os.listdir(path) if f.endswith('.ap.bin') and f.split('_')[0]==stimulus_type]
+        subsession_type, subsession_iter = (Subsession() & key).fetch1('type', 'iteration')
+        ap_files = [f for f in os.listdir(path) if f.endswith('.ap.bin') and f.split('_')[0]==subsession_type and f.split('_')[1] == f"{subsession_iter}"]
         ap_files.sort()
         print(ap_files)
         file = ap_files[0]
@@ -94,7 +94,7 @@ class EphysRaw(dj.Imported):
         # id, stimulus_type = file.split('_')[:2]
         key['ap_path'] = rel_file_path
         key['meta_path'] = rel_file_path[:-3] + 'meta'
-        key['stimulus_type'] = stimulus_type
+        key['subsession_type'] = subsession_type
         sync_trace = neuropixels_utils.extract_sync(Path(os.path.join(path, file)))
         key['sync_trace'] = sync_trace
         key['length'] = sync_trace.shape[1]
@@ -106,21 +106,21 @@ class EphysRaw(dj.Imported):
 
 
 @schema
-class TrialGroupSpikes(dj.Computed):
+class SubsessionSpikes(dj.Computed):
     definition = """
             -> EphysRaw
             -> SpikeSorted
             ---
-            stimulus_type: varchar(128)
+            subsession_type: varchar(128)
             start_abs: int
             clusters: longblob            
             cluster_annot: longblob
     """
 
     def make(self, key):
-        experiment_id, session_id, stimulus_type, start, length = \
-            (EphysRaw() & key).fetch1('experiment_id', 'session_id', 'stimulus_type', 'start', 'length')
-        key['stimulus_type'] = stimulus_type
+        experiment_id, session_id, subsession_type, start, length = \
+            (EphysRaw() & key).fetch1('experiment_id', 'session_id', 'subsession_type', 'start', 'length')
+        key['subsession_type'] = subsession_type
         key['start_abs'] = start
         spike_times, spike_clusters, cluster_info = \
             (SpikeSorted() & key).fetch1('spike_times', 'spike_clusters', 'cluster_info')
@@ -135,7 +135,11 @@ class TrialGroupSpikes(dj.Computed):
 
         print('Populated a trial for {session_id} in {experiment_id}'.format(**key))
 
-#
-# @schema
+
+# # @schema
 # class TrialSpikes(dj.Computed):
+#     pass
 #
+# # @schema
+# class StimPresSpikes(dj.Computed):
+#     pass
