@@ -7,12 +7,12 @@ import os
 
 def extract(subsession_type, sync_raw, stimlog_folder, stimlog_iter):
     if subsession_type == 'EXD':  # Fix subsession names! This will currently not work because name is EXD1, EXD2, ...
-        trials, _, _, stimtriggers = EXDSubsession().extract(sync_raw, stimlog_folder, stimlog_iter)
+        trials, trial_starts, trial_ends, _, _, stimtriggers = EXDSubsession().extract(sync_raw, stimlog_folder, stimlog_iter)
     elif subsession_type == 'OPTS':
-        trials, _, _, stimtriggers = OPTSSubsession().extract(sync_raw, stimlog_folder, stimlog_iter)
+        trials, trial_starts, trial_ends, _, _, stimtriggers = OPTSSubsession().extract(sync_raw, stimlog_folder, stimlog_iter)
     else:
         raise RuntimeError('Subsession type not recognized:', subsession_type)
-    return stimtriggers, trials
+    return stimtriggers, trials, trial_starts, trial_ends
 
 
 class SubsessionType:
@@ -44,6 +44,7 @@ class EXDSubsession(SubsessionType):
     }
 
     def extract(self, sync_raw, stimlog_folder, stimlog_iter):
+        print(stimlog_folder, stimlog_iter)
         stimtriggers, trigger_idxs = self.get_stimtriggers(sync_raw)
         stimtypes = self.load_stimtypes_from_stimlog(stimlog_folder, 'EXPAandDIMM', stimlog_iter)
         # Subsession start trigger
@@ -51,28 +52,62 @@ class EXDSubsession(SubsessionType):
         trigger_idxs[0] += 1
 
         trial_starts = []
-        trial_stops = []
+        trial_ends = []
         trials = []
         for stimtype in stimtypes[::4]: # Always 4 iterations of the same stimulus presentation in each trial
+            if trigger_idxs[7]+4*3+1+1+1 >= len(stimtriggers[7]):
+                print("Number of trials in stimlog file exceeds number of triggers found in PXI log. Stims:", len(stimtypes), "Triggers:", len(stimtriggers[7]))
+                break
+            else:
+                print("fine: Stims:", len(stimtypes), "Triggers:", len(stimtriggers[7]), "Current:", trigger_idxs[7]+4*3+1+1+1)
             trial_stims = []
             # Trial start trigger
-            trial_starts.append(stimtriggers[0][trigger_idxs[0]])
-            trigger_idxs[0] += 1
+            # print('stimtriggers', stimtriggers)
+            # print('trigger_idxs', trigger_idxs)
+            trial_starts.append(stimtriggers[7][trigger_idxs[7]])
+            trigger_idxs[7] += 1
             for i in range(4):
-                stim_pres, stimtriggers = self.stimtypes_dict[stimtype].extract(stimtriggers, trigger_idxs)
+                stim_pres, trigger_idxs = self.stimtypes_dict[stimtype]().extract(stimtriggers, trigger_idxs)
                 trial_stims.append(stim_pres)
+
             # Trial stop trigger
-            trial_stops.append(stimtriggers[0][trigger_idxs[0]])
-            trigger_idxs[0] += 1
-            # Take into account the extra weird trigger
+            trial_ends.append(stimtriggers[7][trigger_idxs[7]])
+            trigger_idxs[7] += 1
+            if stimtype == 1:
+                # Take into account the extra weird trigger for expanding
+                trigger_idxs[7] += 1
             trials.append(trial_stims)
         # Subsession stop trigger
-        subsession_stop = stimtriggers[0][trigger_idxs[0]]
+        try:
+            subsession_stop = stimtriggers[0][trigger_idxs[0]]
+        except:
+            print("No subsession_stop trigger found on channel 0. Setting subsession_stop to -1.")
+            subsession_stop = -1
 
-        return trials, subsession_start, subsession_stop, stimtriggers
+        return trials, trial_starts, trial_ends, subsession_start, subsession_stop, stimtriggers
 
 
 class OPTSSubsession(SubsessionType):
 
-    def extract(self, stimtriggers, trigger_idxs, stimtypes):
-        return None, None, None, None
+    def extract(self, sync_raw, stimlog_folder, stimlog_iter):
+        stimtriggers, trigger_idxs = self.get_stimtriggers(sync_raw)
+        subsession_start = stimtriggers[0][trigger_idxs[0]]
+        trigger_idxs[0] += 1
+
+        trial_starts = []
+        trial_ends = []
+        trials = []
+        while trigger_idxs[1]+50 < len(stimtriggers[1]):
+            trial_starts.append(stimtriggers[1][trigger_idxs[1]])
+            trial = []
+            for i in range(50):
+                trial.append(stimtriggers[1][trigger_idxs[1]])
+                trigger_idxs[1] += 1
+            trial_ends.append(stimtriggers[1][trigger_idxs[1]-1])
+
+        try:
+            subsession_stop = stimtriggers[0][trigger_idxs[0]]
+        except:
+            print("No subsession_stop trigger found on channel 0. Setting subsession_stop to -1.")
+            subsession_stop = -1
+        return tuple(trials), trial_starts, trial_ends, subsession_start, subsession_stop, stimtriggers

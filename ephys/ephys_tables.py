@@ -139,7 +139,7 @@ class SubsessionSpikes(dj.Computed):
 # # @schema
 # class TrialSpikes(dj.Computed):
 #     pass
-#
+
 # # @schema
 # class StimPresSpikes(dj.Computed):
 #     pass
