@@ -2,6 +2,7 @@ import numpy as np
 
 
 class EXPA:
+    name = 'EXPA'
 
     def extract(self, stimtriggers, trigger_idxs):
         # These are the channels used by Katja in her recordings
@@ -16,6 +17,7 @@ class EXPA:
 
 
 class DIMM:
+    name = 'DIMM'
 
     def extract(self, stimtriggers, trigger_idxs):
         # These are the channels used by Katja in her recordings

@@ -20,6 +20,7 @@ class SubsessionEvents(dj.Computed):
             start_abs: int
             trials: longblob
             subsession_triggers: longblob
+            trials_stimtypes: blob
             trials_starts: blob
             trials_ends: blob
     """
@@ -37,9 +38,10 @@ class SubsessionEvents(dj.Computed):
         if not os.path.isdir(stimlog_folder_path):
             print('Neural recordings for {session_id} in {experiment_id} are not found'.format(**key))
             return
-        subsession_triggers, trials, trials_starts, trials_ends = event_types.extract(subsession_type, sync_trace, stimlog_folder_path, stimlog_iter)
+        subsession_triggers, trials, trials_starts, trials_ends, trial_stimtypes = event_types.extract(subsession_type, sync_trace, stimlog_folder_path, stimlog_iter)
         # info = neuropixels_utils.get_trialgroup_stimulus_info(sync_trace)
         key['trials'] = trials
+        key['trials_stimtypes'] = trial_stimtypes
         key['subsession_triggers'] = subsession_triggers
         key['trials_starts'] = trials_starts
         key['trials_ends'] = trials_ends
@@ -56,19 +58,19 @@ class TrialEvents(dj.Computed):
             -> SubsessionEvents
             trial_id: varchar(128)
             ---
-            trial_type: varchar(128)
             trial_iter: int
+            stimtype: varchar(128)
             start: int
             end: int
             events: blob
     """
 
     def make(self, key):
-        subsession_type, trials, trials_starts, trials_ends = (SubsessionEvents() & key).fetch1('subsession_type', 'trials', 'trials_starts', 'trials_ends')
-        key['trial_type'] = 'NA'
-        for i, (trial, start, end) in enumerate(zip(trials, trials_starts, trials_ends)):
+        subsession_type, trials, trials_starts, trials_ends, trials_stimtypes = (SubsessionEvents() & key).fetch1('subsession_type', 'trials', 'trials_starts', 'trials_ends', 'trials_stimtypes')
+        for i, (trial, stimtype, start, end) in enumerate(zip(trials, trials_stimtypes, trials_starts, trials_ends)):
             key['trial_id'] = f"{subsession_type}_T{i}"
             key['trial_iter'] = i
+            key['stimtype'] = stimtype
             key['start'] = start
             key['end'] = end
             key['events'] = trial
