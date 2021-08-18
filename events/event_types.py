@@ -10,6 +10,20 @@ def extract(subsession_type, sync_raw, stimlog_folder, stimlog_iter):
         trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = EXDSubsession().extract(sync_raw, stimlog_folder, stimlog_iter)
     elif subsession_type == 'OPTS':
         trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = OPTSSubsession().extract(sync_raw, stimlog_folder, stimlog_iter)
+    elif subsession_type == 'EXPA':
+        trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = StationaryDotSubsession('EXPA').extract(sync_raw, stimlog_folder, stimlog_iter)
+    elif subsession_type == 'EXPB':
+        trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = StationaryDotSubsession('EXPB').extract(sync_raw, stimlog_folder, stimlog_iter)
+    elif subsession_type == 'DIMM':
+        trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = StationaryDotSubsession('DIMM').extract(sync_raw, stimlog_folder, stimlog_iter)
+    elif subsession_type == 'EXPN':
+        trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = StationaryDotSubsession('EXPN').extract(sync_raw, stimlog_folder, stimlog_iter)
+    elif subsession_type == 'EXPK':
+        trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = StationaryDotSubsession('EXPK').extract(sync_raw, stimlog_folder, stimlog_iter)
+    elif subsession_type == 'EXPW':
+        trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = StationaryDotSubsession('EXPW').extract(sync_raw, stimlog_folder, stimlog_iter)
+    elif subsession_type == 'CHPE':
+        trials, trial_starts, trial_ends, trial_stimtypes, _, _, stimtriggers = CHPESubsession().extract(sync_raw, stimlog_folder, stimlog_iter)
     else:
         raise RuntimeError('Subsession type not recognized:', subsession_type)
     return stimtriggers, trials, trial_starts, trial_ends, trial_stimtypes
@@ -101,17 +115,127 @@ class OPTSSubsession(SubsessionType):
         trial_ends = []
         trial_stimtypes = []
         trials = []
-        while trigger_idxs[1]+50 < len(stimtriggers[1]):
+
+        while trigger_idxs[1] < len(stimtriggers[1]):
             trial_starts.append(stimtriggers[1][trigger_idxs[1]])
             trial = []
-            for i in range(50):
+            while (trigger_idxs[1] < len(stimtriggers[1])-1) and (stimtriggers[1][trigger_idxs[1]+1]-stimtriggers[1][trigger_idxs[1]]<30000): # If difference between current and next is smaller than ~1 second
                 trial.append(stimtriggers[1][trigger_idxs[1]])
                 trigger_idxs[1] += 1
-            trial_ends.append(stimtriggers[1][trigger_idxs[1]-1])
+            trial_ends.append(stimtriggers[1][trigger_idxs[1]])
+            trigger_idxs[1] += 1
+
             trial_stimtypes.append('OPTS')
+            trials.append(trial)
+        # while trigger_idxs[1]+50 < len(stimtriggers[1]):
+        #     trial_starts.append(stimtriggers[1][trigger_idxs[1]])
+        #     trial = []
+        #     for i in range(50):
+        #         trial.append(stimtriggers[1][trigger_idxs[1]])
+        #         trigger_idxs[1] += 1
+        #     trial_ends.append(stimtriggers[1][trigger_idxs[1]-1])
+        #     trial_stimtypes.append('OPTS')
+        #     trials.append(trial)
         try:
             subsession_stop = stimtriggers[0][trigger_idxs[0]]
         except:
             print("No subsession_stop trigger found on channel 0. Setting subsession_stop to -1.")
             subsession_stop = -1
+        return trials, trial_starts, trial_ends, trial_stimtypes, subsession_start, subsession_stop, stimtriggers
+
+
+class StationaryDotSubsession(SubsessionType):
+    def __init__(self, name):
+        self.name = name
+
+    def extract(self, sync_raw, stimlog_folder, stimlog_iter):
+        stimtriggers, trigger_idxs = self.get_stimtriggers(sync_raw)
+        subsession_start = stimtriggers[0][trigger_idxs[0]]
+        trigger_idxs[0] += 1
+        stimtriggers[7] = stimtriggers[7][1:-2]
+
+        trials = []
+        trial_starts = stimtriggers[7][0::3]
+        trial_ends = stimtriggers[7][2::3]
+        for i in range(len(trial_starts)):
+            trials.append(tuple(stimtriggers[7][i*3:i*3+3]))
+        # trial_starts = stimtriggers[2]
+        # trial_ends = stimtriggers[3]
+        trial_stimtypes = [self.name for _ in trial_starts]
+
+        try:
+            subsession_stop = stimtriggers[3][trigger_idxs[3]]
+        except:
+            print("No subsession_stop trigger found on channel 0. Setting subsession_stop to -1.")
+            subsession_stop = -1
+
+        return trials, trial_starts, trial_ends, trial_stimtypes, subsession_start, subsession_stop, stimtriggers
+
+class EXPASubsession(SubsessionType):
+    def extract(self, sync_raw, stimlog_folder, stimlog_iter):
+        stimtriggers, trigger_idxs = self.get_stimtriggers(sync_raw)
+        subsession_start = stimtriggers[0][trigger_idxs[0]]
+        trigger_idxs[0] += 1
+
+        trials = []
+
+        trial_starts = stimtriggers[7][0::3]
+        trial_ends = stimtriggers[7][2::3]
+        # trial_starts = stimtriggers[2]
+        # trial_ends = stimtriggers[3]
+        trial_stimtypes = ['DIMM' for _ in trial_starts]
+
+        try:
+            subsession_stop = stimtriggers[3][trigger_idxs[3]]
+        except:
+            print("No subsession_stop trigger found on channel 0. Setting subsession_stop to -1.")
+            subsession_stop = -1
+
+        return tuple(trials), trial_starts, trial_ends, trial_stimtypes, subsession_start, subsession_stop, stimtriggers
+
+
+class DIMMSubsession(SubsessionType):
+    def extract(self, sync_raw, stimlog_folder, stimlog_iter):
+        stimtriggers, trigger_idxs = self.get_stimtriggers(sync_raw)
+        subsession_start = stimtriggers[0][trigger_idxs[0]]
+        trigger_idxs[0] += 1
+
+        trials = []
+
+        trial_starts = stimtriggers[7][0::3]
+        trial_ends = stimtriggers[7][2::3]
+        # trial_starts = stimtriggers[2]
+        # trial_ends = stimtriggers[3]
+        trial_stimtypes = ['DIMM' for _ in trial_starts]
+
+        try:
+            subsession_stop = stimtriggers[3][trigger_idxs[3]]
+        except:
+            print("No subsession_stop trigger found on channel 0. Setting subsession_stop to -1.")
+            subsession_stop = -1
+
+        return tuple(
+            trials), trial_starts, trial_ends, trial_stimtypes, subsession_start, subsession_stop, stimtriggers
+
+
+class CHPESubsession(SubsessionType):
+    def extract(self, sync_raw, stimlog_folder, stimlog_iter):
+        stimtriggers, trigger_idxs = self.get_stimtriggers(sync_raw)
+        subsession_start = stimtriggers[0][trigger_idxs[0]]
+        trigger_idxs[0] += 1
+
+        trials = []
+
+        trial_starts = stimtriggers[7][0::7] - 30000*2
+        trial_ends = stimtriggers[7][6::7] + 30000*2
+        # trial_starts = stimtriggers[2]
+        # trial_ends = stimtriggers[3]
+        trial_stimtypes = ['CHPE' for _ in trial_starts]
+
+        try:
+            subsession_stop = stimtriggers[3][trigger_idxs[3]]
+        except:
+            print("No subsession_stop trigger found on channel 0. Setting subsession_stop to -1.")
+            subsession_stop = -1
+
         return tuple(trials), trial_starts, trial_ends, trial_stimtypes, subsession_start, subsession_stop, stimtriggers
