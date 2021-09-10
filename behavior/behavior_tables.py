@@ -4,6 +4,7 @@ from main_tables import Experiment, Session, Subsession
 from behavior import data_video
 from behavior.data_tiff import DataTiff
 from behavior.data_deeplabcut import DataDLC
+from ephys.ephys_tables import EphysRaw
 import pandas as pd
 import numpy as np
 import pickle
@@ -100,8 +101,27 @@ class BallReadout(dj.Imported):   # it's half imported, but also computed, not s
    definition = """
        -> Subsession
        ---
-       ball_readout: longblob   # extracts the ball readout from wavesurfer channel
+       ball_readout: blob@ball   # extracts the ball readout from wavesurfer channel
+       pxi_offset: int
+       pxi_scaling_factor: float
    """
+
+   def _get_pxi_matching(self, ball_readout, sync_trace):
+       screen_wavesurfer = np.where(np.diff(ball_readout[1]) > 5000)[0]
+       screen_pxi = np.where(np.diff(sync_trace[7]) > 240)[0]
+
+       screen_wavesurfer -= screen_wavesurfer[0]
+       screen_pxi -= screen_pxi[0]
+       if len(screen_wavesurfer) != len(screen_pxi):
+           raise Exception('Wavesurfer and PXI do not have the same number of stimulus triggers')
+       scaling_factor = np.median(screen_wavesurfer[1:] / screen_pxi[1:])
+       # scaling_factor = 20/30
+       offset = np.where(np.diff(sync_trace[7]) > 240)[0][0] - int(
+           np.where(np.diff(ball_readout[1]) > 5000)[0][0] / scaling_factor)
+
+       print(screen_wavesurfer[1:] / screen_pxi[1:])
+       print("Scaling factor:", scaling_factor, ", Offset:", offset)
+       return scaling_factor, offset
 
    def make(self, key):
        import h5py
@@ -122,8 +142,15 @@ class BallReadout(dj.Imported):   # it's half imported, but also computed, not s
            trigger_traces = np.array(ws_file.get(sweep + '/analogScans'))
            # ball_speed = (trigger_traces[2, :]-speedV0)/speedV0 # recorded with 20kHz
            key['ball_readout'] = trigger_traces  # ball_speed
-           self.insert1(key)
+
+           sync_trace = (EphysRaw() & key).fetch1('sync_trace')
+           try:
+               key['pxi_scaling_factor'], key['pxi_offset'] = self._get_pxi_matching(trigger_traces, sync_trace)
+
+               self.insert1(key)
+           except Exception as e:
+               print(e)
 
          # channels from wavesurfer file:
-         # 0: frame triggers, 1: stim triggers, 2: imagin triggers,  4: ball speed, 5: camera triggers
+         # 0: frame triggers, 1: stim triggers, 2: imagin triggers,  3: ball speed, 4: camera triggers
 

@@ -14,6 +14,10 @@ dj.config['stores'] = {
     'external_neuropixels': dict(
         protocol='file',
         location=os.path.join(drive_path, r'blobs/neuropixels')
+    ),
+    'ball': dict(
+        protocol='file',
+        location=os.path.join(drive_path, r'blobs/ball')
     )
 }
 
