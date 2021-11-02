@@ -70,6 +70,9 @@ class EphysRaw(dj.Imported):
       """
 
     def make(self, key):
+        #            ap_meta_path: varchar(512)
+            # lf_path: varchar(512)
+            # lf_meta_path: varchar(512)
         # TODO: add file length as metadata
         config_type = (Experiment() & key).fetch1('config_type')
         cfg = configs.get_config(config_type)
@@ -82,7 +85,9 @@ class EphysRaw(dj.Imported):
             return
 
         subsession_type, subsession_iter = (Subsession() & key).fetch1('type', 'iteration')
-        ap_files = [f for f in os.listdir(path) if f.endswith('.ap.bin') and ((f.split('_')[1]==subsession_type and f.split('_')[0] == f"{subsession_iter:04d}") or (f.split('_')[0]==subsession_type and f.split('_')[1] == f"{subsession_iter}"))] # Flip f.split('_') naming depending on Arnau or Ania's data
+        ap_files = [f for f in os.listdir(path) if f.endswith('.ap.bin') and 
+        ((f.split('_')[1]==subsession_type and f.split('_')[0] == f"{subsession_iter:04d}") or 
+        (f.split('_')[0]==subsession_type and f.split('_')[1] == f"{subsession_iter:04d}"))] # Flip f.split('_') naming depending on Arnau or Ania's data
         ap_files.sort()
         print(ap_files)
         file = ap_files[0]
@@ -125,11 +130,24 @@ class EphysRawHelper(dj.Computed):
     def make(self, key):
         session_key = {k: key[k] for k in ['experiment_id', 'mouse_id', 'session_id']}
         # curr_subsess_iter = key['subsession_iter']
-        curr_subsess_iter, length = (EphysRaw() & key).fetch1('subsession_iter', 'length')
-        lengths, subsess_iter = (EphysRaw() & session_key).fetch('length', 'subsession_iter')
+        # curr_subsess_iter, length = (EphysRaw() & key).fetch1('subsession_iter', 'length')
+        # lengths, subsess_iter = (EphysRaw() & session_key).fetch('length', 'subsession_iter')
+        #
+        # # Sum all lengths that have a iter smaller than the current iter
+        # start = sum([l for l, i in zip(lengths, subsess_iter) if i < curr_subsess_iter])
+        # key['length'] = length
+        # key['start'] = start
+        # self.insert1(key)
+
+        curr_ap_path, length = (EphysRaw() & key).fetch1('ap_path', 'length')
+        lengths, ap_paths = (EphysRaw() & session_key).fetch('length', 'ap_path')
+        curr_ap_path = curr_ap_path.split('\\')[-1]
+        ap_paths = [p.split('\\')[-1] for p in ap_paths]
+        others = [(l, p) for l, p in sorted(zip(lengths, ap_paths), key=lambda pair: pair[1])]
+        print(curr_ap_path, ap_paths)
 
         # Sum all lengths that have a iter smaller than the current iter
-        start = sum([l for l, i in zip(lengths, subsess_iter) if i < curr_subsess_iter])
+        start = sum([l for l, p in others if p < curr_ap_path])
         key['length'] = length
         key['start'] = start
         self.insert1(key)

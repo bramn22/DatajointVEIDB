@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from events.stimtypes import EXPA, DIMM
 import os
+from scipy.signal import medfilt
+
 
 
 def extract(subsession_type, sync_raw, stimlog_folder, stimlog_iter):
@@ -107,7 +109,17 @@ class EXDSubsession(SubsessionType):
 class OPTSSubsession(SubsessionType):
 
     def extract(self, sync_raw, stimlog_folder, stimlog_iter):
-        stimtriggers, trigger_idxs = self.get_stimtriggers(sync_raw)
+        a = sync_raw.copy()
+        if np.mean(a[1]) > 0.5:
+            a[1] = 1-a[1] # If signal is inversed, inverse it manually
+        a[1,:] = medfilt(a[1,:], kernel_size=5)
+        
+        # stimtriggers, trigger_idxs = self.get_stimtriggers(a)
+        sync = np.diff(a, prepend=0)
+        sync[1] = np.abs(sync[1])  # extract both the start and stop triggers of each pulse
+        stimtriggers = [np.where(sync[s_ch] == 1)[0] for s_ch in range(len(sync))]
+        trigger_idxs = [0 for _ in range(len(sync))]
+
         subsession_start = stimtriggers[0][trigger_idxs[0]]
         trigger_idxs[0] += 1
 
@@ -122,6 +134,7 @@ class OPTSSubsession(SubsessionType):
             while (trigger_idxs[1] < len(stimtriggers[1])-1) and (stimtriggers[1][trigger_idxs[1]+1]-stimtriggers[1][trigger_idxs[1]]<30000): # If difference between current and next is smaller than ~1 second
                 trial.append(stimtriggers[1][trigger_idxs[1]])
                 trigger_idxs[1] += 1
+            trial.append(stimtriggers[1][trigger_idxs[1]]) # Add last trigger
             trial_ends.append(stimtriggers[1][trigger_idxs[1]])
             trigger_idxs[1] += 1
 

@@ -43,10 +43,13 @@ class SubsessionEvents(dj.Computed):
         if not os.path.isdir(stimlog_folder_path):
             session_path = os.path.join(data_path, cfg['session_path'].format(**key))
             print(session_path)
-            stimlog_folder_path = os.path.join(session_path, [f for f in os.listdir(session_path) if 'stimlog' in f.lower()][0])
-            if not os.path.isdir(stimlog_folder_path):
-                print('Neural recordings for {session_id} in {experiment_id} are not found'.format(**key))
-                return
+            if len([f for f in os.listdir(session_path) if 'stimlog' in f.lower()]) != 0:
+                stimlog_folder_path = os.path.join(session_path, [f for f in os.listdir(session_path) if 'stimlog' in f.lower()][0])
+                if not os.path.isdir(stimlog_folder_path):
+                    print('Neural recordings for {session_id} in {experiment_id} are not found'.format(**key))
+                    return
+            else:
+                print("No stimlog folder found for {session_id} in {experiment_id}!")
         try:
             subsession_triggers, trials, trials_starts, trials_ends, trial_stimtypes = event_types.extract(subsession_type, sync_trace, stimlog_folder_path, stimlog_iter)
             # info = neuropixels_utils.get_trialgroup_stimulus_info(sync_trace)
