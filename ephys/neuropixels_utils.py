@@ -69,7 +69,7 @@ def get_trial_clusters(spike_times, start, length, spike_clusters):
     trial_spike_clusters = spike_clusters[
         (spike_times >= start) & (spike_times < start + length)]  # TODO: make efficient
     data = {}
-    for cluster in np.unique(trial_spike_clusters):
+    for cluster in np.unique(spike_clusters):
         cl_spike_times = np.squeeze(trial_spike_times[trial_spike_clusters == cluster])
         data[cluster] = cl_spike_times
     return data
