@@ -117,6 +117,23 @@ class EphysRaw(dj.Imported):
 
         print('Populated neural recordings for {session_id} in {experiment_id}'.format(**key))
 
+@schema
+class LFP(dj.Computed): # Todo: Merge with EphysRaw
+    definition = """
+                -> EphysRaw
+                ---
+                lf_path: varchar(512)
+                lf_meta_path: varchar(512)
+                subsession_type: varchar(128)
+          """
+
+    def make(self, key):
+        ap_path, subsession_type = (EphysRaw() & key).fetch1('ap_path', 'subsession_type')
+        key['lf_path'] = ap_path[:-6] + 'lf.bin'
+        key['lf_meta_path'] = ap_path[:-6] + 'lf.meta'
+        key['subsession_type'] = subsession_type
+        self.insert1(key)
+
 
 @schema
 class EphysRawHelper(dj.Computed):
@@ -143,6 +160,11 @@ class EphysRawHelper(dj.Computed):
         lengths, ap_paths = (EphysRaw() & session_key).fetch('length', 'ap_path')
         curr_ap_path = curr_ap_path.split('\\')[-1]
         ap_paths = [p.split('\\')[-1] for p in ap_paths]
+        if key['experiment_id'] == '01588' or (key['experiment_id']=='01589' and key['session_id']=='20211020'):
+            curr_ap_path = curr_ap_path[5:]
+            ap_paths = [p[5:] for p in ap_paths]
+            print("Exception session found. Changing path to:", curr_ap_path)
+
         others = [(l, p) for l, p in sorted(zip(lengths, ap_paths), key=lambda pair: pair[1])]
         print(curr_ap_path, ap_paths)
 

@@ -2,7 +2,7 @@ import os
 import numpy as np
 from pathlib import Path
 from main_tables import Experiment, Session, Subsession
-from ephys.ephys_tables import EphysRaw, EphysRawHelper
+from ephys.ephys_tables import EphysRaw, EphysRawHelper, LFP
 import datajoint as dj
 from ephys import neuropixels_utils
 from events import event_types
@@ -66,6 +66,67 @@ class SubsessionEvents(dj.Computed):
         except RuntimeError as e:
             print("Error with populating trial for {session_id} in {experiment_id}".format(**key))
             print(e)
+
+@schema
+class OptoEvents(dj.Computed):
+    definition = """
+                -> LFP
+                ---
+                pulse_starts: blob
+                pulse_ends: blob 
+        """
+    def filter_pulses(self, transitions_below, transitions_upper):
+        below_idx, upper_idx = 0, 0
+        curr = 0
+        transitions_below_filt = []
+        transitions_upper_filt = []
+        below = False
+
+        while below_idx <= len(transitions_below) and upper_idx < len(transitions_upper):
+            if below == True:
+                v = transitions_upper[upper_idx]
+                if v > curr:
+                    transitions_upper_filt.append(v)
+                    curr = v
+                    below = False
+                upper_idx += 1
+            else:
+                v = transitions_below[below_idx]
+                if v > curr:
+                    transitions_below_filt.append(v)
+                    curr = v
+                    below = True
+                below_idx += 1
+        return np.array(transitions_below_filt), np.array(transitions_upper_filt)
+
+    def make(self, key):
+        # Get LFPs
+        lf_path, subsession_type = (LFP() & key).fetch1('lf_path', 'subsession_type')
+        # Check if Optotagged recording
+        if subsession_type != 'OPTS':
+            return
+        else:
+            print("Opto trial found or {session_id} in {experiment_id}".format(**key))
+        lfps = neuropixels_utils.extract_analog(Path(os.path.join(data_path, lf_path)), channels=range(384))
+
+        # Artifact detection
+        # mean_lfp = np.mean(lfps, axis=0) - np.mean(lfps)
+        mean_lfp = np.mean((lfps.T - np.mean(lfps, axis=1)).T, axis=0)
+        lfp_std = np.std(mean_lfp)
+
+        lower_bound = -lfp_std * 6
+        upper_bound = lfp_std * 6
+        values_below = mean_lfp < lower_bound
+        values_upper = mean_lfp > upper_bound
+        transitions_below = np.where(np.diff(values_below.astype(int)) > 0)[0]
+        transitions_upper = np.where(np.diff(values_upper.astype(int)) > 0)[0]
+        if len(transitions_below) != 0 and len(transitions_upper) != 0:
+            transitions_below, transitions_upper = self.filter_pulses(transitions_below, transitions_upper)
+        # Store triggers
+        key['pulse_starts'] = transitions_below
+        key['pulse_ends'] = transitions_upper
+        self.insert1(key)
+        print('Populated a trial for {session_id} in {experiment_id}'.format(**key))
 
 
 @schema

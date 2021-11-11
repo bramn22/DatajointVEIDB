@@ -74,7 +74,7 @@ class Subsession(dj.Imported):
         subsession_files = [os.path.splitext(f)[0] for f in os.listdir(base_path) if f.endswith('.h5')]
         for subsession in subsession_files:
             key['subsession_id'] = subsession
-            type, iteration = subsession.split('_')[:2]
+            iteration, type = subsession.split('_')[:2]
             try:
                 key['type'] = type
                 key['iteration'] = int(iteration)

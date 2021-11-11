@@ -16,9 +16,19 @@ config_Arnau = {
     'stimlog_path': "{experiment_id}/neuropixel/{session_id}/StimLog"
 }
 
+config_ArnauV2 = {
+    'session_path': "{experiment_id}/neuropixels/{session_id}",
+    'wavesurfer_path': "{experiment_id}/neuropixels/{session_id}",
+    'facecam_path': "{experiment_id}/neuropixels/eyecam/{session_id}",
+    'sorted_path': "{experiment_id}/neuropixels/{session_id}/sorted",
+    'ephys_path': "{experiment_id}/neuropixels/{session_id}/spikeGLX",
+    'stimlog_path': "{experiment_id}/neuropixels/{session_id}/StimLog"
+}
 
 def get_config(name):
     if name == 'Ania':
         return config_Ania
     elif name == 'Arnau':
         return config_Arnau
+    elif name == 'ArnauV2':
+        return config_ArnauV2
