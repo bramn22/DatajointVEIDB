@@ -4,7 +4,8 @@ config_Ania = {
     'sorted_path': "{experiment_id}/{mouse_id}/{session_id}/sorted",
     'ephys_path': "{experiment_id}/{mouse_id}/{session_id}/SpikeGLX",
     'stimlog_path': "{experiment_id}/{mouse_id}/{session_id}/StimLog",
-    'facecam_path': "{experiment_id}/{mouse_id}/{session_id}/eyecam"
+    'facecam_path': "{experiment_id}/{mouse_id}/{session_id}/eyecam",
+    'event_types': "default"
 }
 
 config_Arnau = {
@@ -13,7 +14,8 @@ config_Arnau = {
     'facecam_path': "{experiment_id}/neuropixel/eyecam/{session_id}",
     'sorted_path': "{experiment_id}/neuropixel/{session_id}/sorted",
     'ephys_path': "{experiment_id}/neuropixel/{session_id}/spikeGLX",
-    'stimlog_path': "{experiment_id}/neuropixel/{session_id}/StimLog"
+    'stimlog_path': "{experiment_id}/neuropixel/{session_id}/StimLog",
+    'event_types': "default"
 }
 
 config_ArnauV2 = {
@@ -22,7 +24,8 @@ config_ArnauV2 = {
     'facecam_path': "{experiment_id}/neuropixels/eyecam/{session_id}",
     'sorted_path': "{experiment_id}/neuropixels/{session_id}/sorted",
     'ephys_path': "{experiment_id}/neuropixels/{session_id}/spikeGLX",
-    'stimlog_path': "{experiment_id}/neuropixels/{session_id}/StimLog"
+    'stimlog_path': "{experiment_id}/neuropixels/{session_id}/StimLog",
+    'event_types': "norma"
 }
 
 def get_config(name):

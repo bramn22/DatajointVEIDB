@@ -5,7 +5,7 @@ from main_tables import Experiment, Session, Subsession
 from ephys.ephys_tables import EphysRaw, EphysRawHelper, LFP
 import datajoint as dj
 from ephys import neuropixels_utils
-from events import event_types
+from events import event_types_default, event_types_norma
 import configs
 
 drive_path = os.environ["DJ_DRIVE_PATH"]
@@ -51,7 +51,10 @@ class SubsessionEvents(dj.Computed):
             else:
                 print("No stimlog folder found for {session_id} in {experiment_id}!")
         try:
-            subsession_triggers, trials, trials_starts, trials_ends, trial_stimtypes = event_types.extract(subsession_type, sync_trace, stimlog_folder_path, stimlog_iter)
+            if cfg['event_types'] =='norma':
+                subsession_triggers, trials, trials_starts, trials_ends, trial_stimtypes = event_types_norma.extract(subsession_type, sync_trace, stimlog_folder_path, stimlog_iter)
+            else:
+                subsession_triggers, trials, trials_starts, trials_ends, trial_stimtypes = event_types_default.extract(subsession_type, sync_trace, stimlog_folder_path, stimlog_iter)
             # info = neuropixels_utils.get_trialgroup_stimulus_info(sync_trace)
             key['trials'] = trials
             key['trials_stimtypes'] = trial_stimtypes
